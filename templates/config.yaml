@@ -1,0 +1,216 @@
+shellcode_template:
+  includePath: "Include/Shellcode.h"
+  substitutions:
+    shellcode: "${ SHELLCODE }" 
+    shellcode_size: "${ SHELLCODE_SIZE }"
+  includeOutputName: "Shellcode.h"
+
+loader_template:
+  - token: "inline"
+    key_required: false # This loader does not use encrypted shellcode, so no key is required
+    method: "VirtualAlloc, memcpy, ((void(*)())exec)();" # This can be whatever, just a description of the method
+    files: # These are relative paths to the files that will be included in the loader from the template folder
+      - sourcePath: "Source/Inline.c"
+        outputPath: "Main.c"
+      
+      - sourcePath: "makefile"
+        outputPath: "makefile"
+  
+  - token: "inline_xor"
+    key_required: true # This loader uses encrypted shellcode, so a key is required
+    enc_type: "xor" # Since this loader uses encrypted shellcode, we need to specify the encryption type
+    method: "VirtualAlloc, xorShellcode, memcpy, ((void(*)())exec)();"
+    files:
+      - sourcePath: "Source/Inline_Xor.c"
+        outputPath: "Main.c"
+        substitutions: 
+          key: "${KEY}"
+          # xorShellcode(shellcode, shellcode_size, "${KEY}");
+          # Strictly pass in with ` -args "key=aaaa" `
+
+      - sourcePath: "Source/Xor.c" # And, the rest of the source files don't need any substitutions
+        outputPath: "Xor.c"
+      
+      - sourcePath: "Include/Xor.h"
+        outputPath: "Xor.h"
+
+      - sourcePath: "makefile"
+        outputPath: "makefile"
+
+  - token: "createremotethread"
+    key_required: false
+    method: "OpenProcess, VirtualAllocEx (PAGE_EXECUTE_READWRITE), WriteProcessMemory, CreateRemoteThread, WaitForSingleObject, CloseHandle"
+    files:
+      - sourcePath: "Source/CreateRemoteThread.c"
+        outputPath: "Main.c"
+
+      - sourcePath: "makefile"
+        outputPath: "makefile"
+  
+  - token: "createremotethreadrx"
+    key_required: false
+    method: "OpenProcess, VirtualAllocEx (PAGE_READWRITE), WriteProcessMemory, VirtualProtect (PAGE_EXECUTE_READ), CreateRemoteThread, WaitForSingleObject, CloseHandle"
+    files:
+      - sourcePath: "Source/CreateRemoteThreadRX.c"
+        outputPath: "Main.c"
+
+      - sourcePath: "makefile"
+        outputPath: "makefile"
+  
+
+  - token: "createthread"
+    key_required: false
+    method: "VirtualAlloc, memcpy, CreateThread, WaitForSingleObject"
+    files:
+      - sourcePath: "Source/CreateThread.c"
+        outputPath: "Main.c"
+
+      - sourcePath: "makefile"
+        outputPath: "makefile"
+  
+  - token: "createthread_xor"
+    key_required: true
+    enc_type: "xor"
+    method: "VirtualAlloc, xorShellcode, memcpy, CreateThread, WaitForSingleObject"
+    files:
+      - sourcePath: "Source/CreateThread_Xor.c"
+        outputPath: "Main.c"
+        substitutions: 
+          key: "${KEY}"
+
+      - sourcePath: "Source/Xor.c"
+        outputPath: "Xor.c"
+      
+      - sourcePath: "Include/Xor.h"
+        outputPath: "Xor.h"
+
+      - sourcePath: "makefile"
+        outputPath: "makefile"
+
+  - token: "createthread_xor_sleep"
+    key_required: true
+    enc_type: "xor"
+    method: "VirtualAlloc, Sleep, xorShellcode, memcpy, CreateThread, WaitForSingleObject"
+    files:
+      - sourcePath: "Source/CreateThread_Xor_Sleep.c"
+        outputPath: "Main.c"
+        substitutions: 
+          key: "${KEY}"
+          sleep: "${ SLEEP }"
+
+      - sourcePath: "Source/Xor.c"
+        outputPath: "Xor.c"
+      
+      - sourcePath: "Include/Xor.h"
+        outputPath: "Xor.h"
+
+      - sourcePath: "makefile"
+        outputPath: "makefile"
+
+  - token: "createthread_iat"
+    key_required: false
+    method: "Dyanmic WinAPI resolution then VirtualAlloc, memcpy, CreateThread, WaitForSingleObject"
+    files:
+      - sourcePath: "Source/CreateThread_IAT.c"
+        outputPath: "Main.c"
+
+      - sourcePath: "Source/Hash.c"
+        outputPath: "Hash.c"
+
+      - sourcePath: "Source/Iat.c"
+        outputPath: "Iat.c"
+
+      - sourcePath: "Include/Hash.h"
+        outputPath: "Hash.h"
+
+      - sourcePath: "Include/Iat.h"
+        outputPath: "Iat.h"
+
+      - sourcePath: "makefile"
+        outputPath: "makefile"
+  
+  - token: "createthread_iat_xor"
+    key_required: true
+    enc_type: "xor"
+    method: "Dyanmic WinAPI resolution then VirtualAlloc, xorShellcode, memcpy, CreateThread, WaitForSingleObject"
+    files:
+      - sourcePath: "Source/CreateThread_IAT_Xor.c"
+        outputPath: "Main.c"
+        substitutions: 
+          key: "${KEY}"
+
+      - sourcePath: "Source/Hash.c"
+        outputPath: "Hash.c"
+
+      - sourcePath: "Source/Iat.c"
+        outputPath: "Iat.c"
+
+      - sourcePath: "Source/Xor.c"
+        outputPath: "Xor.c"
+      
+      - sourcePath: "Include/Hash.h"
+        outputPath: "Hash.h"
+
+      - sourcePath: "Include/Iat.h"
+        outputPath: "Iat.h"
+
+      - sourcePath: "Include/Xor.h"
+        outputPath: "Xor.h"
+
+      - sourcePath: "makefile"
+        outputPath: "makefile"
+    
+  - token: "queueuserapc"
+    key_required: false
+    method: "OpenProcess, VirtualAllocEx, WriteProcessMemory, OpenThread, QueueUserAPC"
+    files:
+      - sourcePath: "Source/QueueUserAPC.c"
+        outputPath: "Main.c"
+        substitutions:
+          pname: ${ PNAME }
+
+      - sourcePath: "makefile"
+        outputPath: "makefile"
+  
+  - token: "earlybirdapc"
+    key_required: false
+    method: "CreateProcessA, VirtualAllocEx, WriteProcessMemory, QueueUserAPC, ResumeThread, WaitForSingleObject"
+    files:
+      - sourcePath: "Source/EarlyBirdAPC.c"
+        outputPath: "Main.c"
+        substitutions:
+          pname: ${ PNAME }
+
+      - sourcePath: "makefile"
+        outputPath: "makefile"
+  - token: "earlybirdapc_buffed"
+    key_required: true
+    enc_type: "xor"
+    method: "Sandbox Evasion -> WinAPI Resolution -> XOR Shellcode -> Early Bird APC Injection -> Resume Thread"
+    files:
+      - sourcePath: "Source/EarlyBirdAPC_Buffed.c"
+        outputPath: "Main.c"
+        substitutions:
+          key: ${ KEY }
+          pname: ${ PNAME }
+
+      - sourcePath: "Source/Hash.c"
+        outputPath: "Hash.c"
+
+      - sourcePath: "Source/Xor.c"
+        outputPath: "Xor.c"
+
+      - sourcePath: "Source/Iat.c"
+        outputPath: "Iat.c"
+      
+      - sourcePath: "Include/Hash.h"
+        outputPath: "Hash.h"
+
+      - sourcePath: "Include/Xor.h"
+        outputPath: "Xor.h"
+      
+      - sourcePath: "Include/Iat.h"
+        outputPath: "Iat.h"
+
+      - sourcePath: "makefile"
+        outputPath: "makefile"
